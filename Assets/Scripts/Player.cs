@@ -2,115 +2,128 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Photon.Pun;
+using Unity.VisualScripting;
 
 public class Player : MonoBehaviour
 {
-    private bool facingRight = true;
-    public float speed;
-    private Vector2 speedVector;
+    public Vector2 direction;
+    public int directionState;
+
+    public int health;
+
+    public float speed = 4;
+
+    public Transform sensor; // Сенсор проверяет область перед собой на возможность передвижения
+    public float sensorSize;
+    public float sensorRange;
+
+    public bool canMove;
+    public LayerMask obj;
+
+    public Bullet bullet;
 
     private PhotonView view;
     private Rigidbody2D rb;
     private Joystick joystick;
     private Animator anim;
 
-    private void Start()
+    void Start()
     {
         view = GetComponent<PhotonView>();
         rb = GetComponent<Rigidbody2D>();
         joystick = GameObject.FindGameObjectWithTag("Joystick").GetComponent<Joystick>();
-        anim = GetComponent<Animator>();
     }
 
-    private void FixedUpdate()
-    { 
-        speedVector = new Vector2(joystick.Horizontal * speed, joystick.Vertical * speed);
-
+    // Update is called once per frame
+    void FixedUpdate()
+    {
+        CheckDeath();
+        GetInput();
+        getDirectionState();
+        HandleSensor();
         if (view.IsMine)
         {
-            rb.velocity = speedVector;
-            CheckFacing();
-            CheckRunning();
+            Move();
+        } 
+
+    }
+    void Move()
+    {
+        if (canMove) 
+        { 
+            switch (directionState)
+            {
+                case 3:
+                    rb.velocity = new Vector2(0, direction.y * speed);
+                    break;
+                case 0:
+                    rb.velocity = new Vector2(direction.x * speed, 0);
+                    break;
+                case 2:
+                    rb.velocity = new Vector2(direction.x * speed, 0);
+                    break;
+                case 1:
+                    rb.velocity = new Vector2(0, direction.y * speed);
+                    break;
+            }
+        } else
+        {
+            rb.velocity = Vector2.zero;
         }
+        
+    }
+    void HandleSensor()
+    {
+        sensor.transform.localPosition = Vector2.zero;
+        switch (directionState)
+        {
+            case 3:
+                sensor.transform.localPosition = new Vector2(0, -2f*sensorRange);
+                break;
+            case 2:
+                sensor.transform.localPosition = new Vector2(-1.3f*sensorRange, 0);
+                break;
+            case 0:
+                sensor.transform.localPosition = new Vector2(sensorRange*1.3f, 0);
+                break;
+            case 1:
+                sensor.transform.localPosition = new Vector2(0, 2f*sensorRange);
+                break;
+        }
+        canMove = !Physics2D.OverlapBox(sensor.position, new Vector2(sensorSize, sensorSize), 0, obj);
     }
 
-    private void CheckRunning()
+    void getDirectionState()
     {
-        if (speedVector == Vector2.zero)
-        {
-            anim.SetBool("isRunning", false);
-        }
-        else
-        {
-            anim.SetBool("isRunning", true);
-        }
+        if (Mathf.Abs(direction.x)  > Mathf.Abs(direction.y) && direction.x > 0 ) { directionState = 0; }
+        if (Mathf.Abs(direction.x) > Mathf.Abs(direction.y) && direction.x < 0) { directionState = 2; }
+        if (Mathf.Abs(direction.x) < Mathf.Abs(direction.y) && direction.y > 0) { directionState = 1; }
+        if (Mathf.Abs(direction.x) < Mathf.Abs(direction.y) && direction.y < 0) { directionState = 3; }
     }
-    private void CheckFacing()
+
+
+    void GetInput()
     {
-        if (!facingRight && speedVector.x > 0)
-        {
-            Flip();
-        }
-        else if (facingRight && speedVector.x < 0)
-        {
-            Flip();
-        }
+        direction = new Vector2(joystick.Horizontal, joystick.Vertical);
     }
-    private void Flip()
+
+    public void Shoot()
     {
-        facingRight = !facingRight;
-        transform.Rotate(Vector3.up * 180);
+        bullet.directionState = directionState; 
+        Instantiate(bullet, sensor.transform.position, Quaternion.Euler(0, 0, 90f*directionState));
+    }
+
+    public void TakeDamage(int damage)
+    {
+        health -= damage;
+    }
+    
+    void CheckDeath()
+    {
+        if (health <= 0)
+        {
+            Destroy(gameObject);
+        }
     }
 }
 
-/*
-public class Player : MonoBehaviour
-{
-    private PhotonView view;
-
-    private bool facingRight = true;
-
-    public float basicSpeed = 4f;
-
-    public Vector2 moveInput;
-    private Vector2 moveVelocity;
-
-    public Joystick joystick;
-    public Transform shootOffset;
-    //public GameObject bullet;
-
-    private Rigidbody2D rb;
-    private Animator anim;
-
-    private void Start()
-    {
-        view = GetComponent<PhotonView>();
-        rb = GetComponent<Rigidbody2D>();
-        anim = GetComponent<Animator>();
-    }
-
-    private void FixedUpdate()
-    {
-        if (view.IsMine)
-        {
-            moveInput = new Vector2(joystick.Horizontal, joystick.Vertical);
-
-            moveVelocity = moveInput.normalized * basicSpeed;
-
-            rb.MovePosition(rb.position + moveVelocity * Time.fixedDeltaTime);
-        }    
-        CheckRunning();
-        CheckFacing();
-    }
-
-    public void OnShootButtonDown()
-    {
-       // Instantiate(bullet, shootOffset.position, transform.rotation);
-    }
-
-    
-
-    
-
-    
-}*/
