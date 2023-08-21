@@ -5,26 +5,30 @@ using Photon.Pun;
 
 public class Player : MonoBehaviour
 {
-    bool facingRight;
+    private bool facingRight = true;
     public float speed;
-    Vector2 moveInput;
+    private Vector2 speedVector;
 
-    PhotonView view;
-    Animator anim;
+    private PhotonView view;
+    private Rigidbody2D rb;
+    private Joystick joystick;
+    private Animator anim;
 
     private void Start()
     {
         view = GetComponent<PhotonView>();
+        rb = GetComponent<Rigidbody2D>();
+        joystick = GameObject.FindGameObjectWithTag("Joystick").GetComponent<Joystick>();
         anim = GetComponent<Animator>();
     }
 
     private void FixedUpdate()
-    {
+    { 
+        speedVector = new Vector2(joystick.Horizontal * speed, joystick.Vertical * speed);
+
         if (view.IsMine)
         {
-            moveInput = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-            Vector2 moveAmount = moveInput.normalized * speed/5f;
-            transform.position += (Vector3)moveAmount;
+            rb.velocity = speedVector;
             CheckFacing();
             CheckRunning();
         }
@@ -32,7 +36,7 @@ public class Player : MonoBehaviour
 
     private void CheckRunning()
     {
-        if (moveInput == Vector2.zero)
+        if (speedVector == Vector2.zero)
         {
             anim.SetBool("isRunning", false);
         }
@@ -43,11 +47,11 @@ public class Player : MonoBehaviour
     }
     private void CheckFacing()
     {
-        if (facingRight && moveInput.x > 0)
+        if (!facingRight && speedVector.x > 0)
         {
             Flip();
         }
-        else if (!facingRight && moveInput.x < 0)
+        else if (facingRight && speedVector.x < 0)
         {
             Flip();
         }
